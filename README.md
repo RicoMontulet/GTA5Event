@@ -1,5 +1,3 @@
-Borrowing code from [umautobots](https://github.com/umautobots/GTAVisionExport)
-
 ## Requirements
 * GTAVisionNative (compile from source [here](https://github.com/umautobots/GTAVisionExport/tree/master/native) or download x64 [here](https://github.com/umautobots/GTAVisionExport/files/1703454/native64bit.zip))
 * ScriptHookV (download [here](http://www.dev-c.com/gtav/scripthookv/))
@@ -106,3 +104,10 @@ The frame json contains:
 - Currentweather: the weather of that scene [0=ExtraSunny, 1=Clear, 2=Clouds, 3=Smog, 5=Overcast, 6=Raining, 13=Snowing, 7=Thunderstorm]
 - CamFOV: the field of view of the recording camera (always 50)
 - Detections: List of all people in the scene with they type (1=person), distance to the camera in meters, their handle which is a unique id, and a list of their bones containing on-sceen relative x, y [0, 1] coordinates
+
+### Aknowledgement
+- Borrowing code from [umautobots](https://github.com/umautobots/GTAVisionExport)
+- Thanks to H2020 Mindspaces for funding
+
+### Citation
+Please cite us :\)
