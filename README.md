@@ -1,3 +1,6 @@
+# GTA5Event
+This code accompanies the paper [Densely Annotated Photorealistic Virtual Dataset Generation for Abnormal Event Detection](resources/GTA5Event.pdf)
+
 ![Summary of the annotations.](resources/annotations.png)
 
 ## Requirements
