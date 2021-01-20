@@ -1,7 +1,9 @@
 ﻿using System;
+using System.IO;
 using System.Diagnostics;
 using System.Drawing;
 using System.Runtime.InteropServices;
+using System.Collections.Generic;
 
 namespace GTA5Event
 {
@@ -140,16 +142,14 @@ namespace GTA5Event
 
         // Crop out windows non-sense; the windows bar on top and some 3 pixels they add around the edges?
         private static Rectangle section;
-        private static Bitmap resized_bitmap;
+        //private static Bitmap resized_bitmap;
         private static Bitmap window_bitmap;
         private static bool section_null = true;
 
 
-        public static Bitmap ScreenShot(string procName)
+        public static Bitmap ScreenShot(string procName, int width, int height)
         {
-
             Process proc;
-
             try
             {
                 proc = Process.GetProcessesByName(procName)[0];
@@ -168,11 +168,17 @@ namespace GTA5Event
             //Bitmap bmp = new Bitmap(rc.Width, rc.Height);
             if (section_null)
             {
+                //File.AppendAllText("F:\\datasets\\GTA_V_anomaly\\log.txt", "screengrab: " + rc.Width + "x" + rc.Height + "\n");
+
                 window_bitmap = new Bitmap(rc.Width, rc.Height);
-                section = new Rectangle(new Point(3, 32), new Size(rc.Width - 6, rc.Height - 35));
-                resized_bitmap = new Bitmap(section.Width, section.Height);
+                if (rc.Width == width && rc.Height == height)
+                    section = new Rectangle(new Point(0, 0), new Size(rc.Width, rc.Height));
+                else
+                    section = new Rectangle(new Point(3, 32), new Size(rc.Width - 6, rc.Height - 35));
                 section_null = false;
             }
+
+            Bitmap resized_bitmap = new Bitmap(section.Width, section.Height);
 
             using (var g = Graphics.FromImage(window_bitmap))
             {

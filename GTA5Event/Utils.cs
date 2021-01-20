@@ -100,24 +100,6 @@ namespace GTA5Event
             screenCoords.Y = (screenCoords.Y - 0.5f) * 2.0f;
             return success;
         }
-        // Draw some string at x, y [0,1], code from Crosire
-        //public static void DrawText(string t, float x, float y)
-        //{
-        //    bool statusTextGxtEntry = false;
-        //    Function.Call(Hash.SET_TEXT_FONT, 0);
-        //    Function.Call(Hash.SET_TEXT_SCALE, 0.16f, 0.16f);
-        //    Function.Call(Hash.SET_TEXT_COLOUR, 255, 255, 255, 255);
-        //    Function.Call(Hash.SET_TEXT_WRAP, 0.0f, 1.0f);
-        //    Function.Call(Hash.SET_TEXT_CENTRE, 1);
-        //    Function.Call(Hash.SET_TEXT_DROPSHADOW, 0, 0, 0, 0, 0);
-        //    Function.Call(Hash.SET_TEXT_EDGE, 1, 0, 0, 0, 205);
-
-        //    Function.Call(Hash._SET_TEXT_ENTRY, "STRING");
-        //    Function.Call(Hash._ADD_TEXT_COMPONENT_STRING, t);
-
-        //    Function.Call(Hash._DRAW_TEXT, x, y);
-        //}
-        // Check if point in polygon
         public static bool PointInPoly(GTALocation loc, GTAVector v)
         {
             int max_point = loc.ROI.Count - 1;
@@ -198,6 +180,11 @@ namespace GTA5Event
                     (pts[i + 1].Y + pts[i].Y) / 2;
             }
             return (float)Math.Abs(area);
+        }
+
+        public static double[] ToDouble(float[] input)
+        {
+            return Array.ConvertAll(input, x => (double)x);
         }
     }
 }

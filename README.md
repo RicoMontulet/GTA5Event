@@ -2,20 +2,21 @@
 * GTAVisionNative (compile from source [here](https://github.com/umautobots/GTAVisionExport/tree/master/native) or download x64 [here](https://github.com/umautobots/GTAVisionExport/files/1703454/native64bit.zip))
 * ScriptHookV (download [here](http://www.dev-c.com/gtav/scripthookv/))
 * ScriptHookVDotNet V3 (download [here](https://github.com/crosire/scripthookvdotnet/releases))
+* Menyoo GTA5 Trainer (download [here](https://www.gta5-mods.com/scripts/menyoo-pc-sp))
 * VS2019
-* others managed by nuget
+* others managed by Nuget
 
 ## Install:
 ```
 git clone https://github.com/RicoMontulet/GTA5Event.git
 ```
-- Open `GtaVisionExport.sln` in VS2019
-- Right click GTAVisionExport in Solution Explorer: `properties -> Build Events` and in Post Build event command line add: `COPY "$(TargetPath)" "path/to/Grand Theft Auto V/Scripts"`
-- Right click Solution 'GTAVisionExport' itself and go to: `properties -> Configuration Properties` and set the configuration to `Release` for `x64`
+- Open `GTA5Event.sln` in VS2019
+- Right click GTA5Event in Solution Explorer: `properties -> Build Events` and in Post Build event command line add: `COPY "$(TargetPath)" "path/to/Grand Theft Auto V/Scripts"`
+- Right click Solution 'GTA5Event' itself and go to: `properties -> Configuration Properties` and set the configuration to `Release` for `x64`
 - Right click solution and click `Build Solution`
 
 ## Copying compiled files to GTA V
-- After you compile the GTAVisionExport, copy compiled files from the `GTAVisionExport/managed/GTAVisionExport/bin/Release` to `path/to/Grand Theft Auto V/Scripts`.
+- After you compile the GTA5Event, copy compiled files from the `GTA5Event/bin/Release` to `path/to/Grand Theft Auto V/Scripts`.
 - Modify the `gta_config.ini` file, update the directories + move the file to the `path/to/Grand Theft Auto V/Scripts`.
 
 ## Running GTA5 Event:
@@ -64,15 +65,6 @@ PageUp : Enable the plugin and load previously created scenes
 	- K : Remove last ROI point from current location
 
 
-Reference to publish GTA 5 datas
-https://support.rockstargames.com/articles/200153756/Policy-on-posting-span-class-highlight-copyright-span-ed-Rockstar-Games-material
-
-Rockstar Games uses RAGE (Rockstar Advanced Game Engine) for GTA 5.
-ScriptHookV was written to hook into this engine.
-Im using ScripthookVdotNet (C# wrapper because scripthookv is written in c++ and I didn't want to torture myself like that)
-Using this I can create a free camera, spawn people at locations and give them tasks. Also it gives access to 3D coordinates of all entities (bones, IDs, distance to camera, etc) and functions like 3D to 2D, and allow me to listen to key inputs and process them accordingly.
-I use (https://github.com/umautobots/GTAVisionExport) framework to start from, they have written the DirectX plugin to get the stencil and depth images from the GPU buffer. The RGB part I made myself since theirs had some issues displaying additional content (a realism mod I'm running). Their C++ code is copied as is, but their C# code I've completely changed to fit our need.
-
 ## APPENDIX:
 ### Stencil (bitmap):
 - 0 : Environment objects like floor, stairs, buildings
@@ -107,7 +99,8 @@ The frame json contains:
 
 ### Aknowledgement
 - Borrowing code from [umautobots](https://github.com/umautobots/GTAVisionExport)
-- Thanks to H2020 Mindspaces for funding
+- Thanks to [H2020 Mindspaces](https://mindspaces.eu/) for funding
+- Publishing data from game according to [Rockstar Games](https://support.rockstargames.com/articles/200153756/Policy-on-posting-span-class-highlight-copyright-span-ed-Rockstar-Games-material)
 
 ### Citation
 Please cite us :\)

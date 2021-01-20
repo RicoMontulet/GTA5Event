@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Vector2 = GTA.Math.Vector2;
 using Vector3 = GTA.Math.Vector3;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace GTA5Event
 {
@@ -11,13 +12,6 @@ namespace GTA5Event
     {
         public GTAVector2 Min { get; set; }
         public GTAVector2 Max { get; set; }
-        public float Area
-        {
-            get
-            {
-                return (Max.X - Min.X) * (Max.Y - Min.Y);
-            }
-        }
     }
 
     public class GTABoundingBox
@@ -96,7 +90,7 @@ namespace GTA5Event
             e8.Y = e5.Y - 2 * dim.Z * upVector.Y;
             e8.Z = e5.Z - 2 * dim.Z * upVector.Z;
 
-            CornerPoints = new GTAVector[] { e1, e2, e3, e4, e5, e5, e6, e7, e8 };
+            CornerPoints = new GTAVector[] { e1, e2, e3, e4, e5, e6, e7, e8 };
 
             foreach (GTAVector v in CornerPoints)
             {
@@ -137,7 +131,7 @@ namespace GTA5Event
                 }
                 else
                 {
-                    System.IO.File.AppendAllText("F:/datasets/GTA_V_anomaly/log.txt", "Coord failed: " + temp.ToString() + "\n");
+                    //System.IO.File.AppendAllText("F:/datasets/GTA_V_anomaly/log.txt", "Coord failed: " + temp.ToString() + "\n");
                 }
             }
 
@@ -161,8 +155,11 @@ namespace GTA5Event
         background,
         person,
         car,
-        bike,
-        bicycle,
+        //    bike,
+        //    bicycle,
+        //    bus,
+        //    van,
+        //    train,
         entity
     }
 
@@ -171,29 +168,42 @@ namespace GTA5Event
         public DetectionType Type { get; set; }
         public float Distance { get; set; }
         public int Handle { get; set; }
+        public int SeatIndex { get; set; }
+        public int Gender { get; set; }
+        public int VehicleClass { get; set; }
         public GTABoundingBox2 Bbox2d { get; set; }
-        public Dictionary<string, GTAVector2> Bones { get; set; }
+        public GTABoundingBox Bbox3d { get; set; }
+        //public Dictionary<string, GTAVector2> Bones2D { get; set; }
+        public Dictionary<string, GTAVector> Bones3D { get; set; }
         public GTADetection(Entity e, DetectionType type)
         {
             Type = type;
             Distance = World.RenderingCamera.Position.DistanceTo(e.Position);
             Handle = e.Handle;
-            Bones = new Dictionary<string, GTAVector2>();
+            //Bones2D = new Dictionary<string, GTAVector2>();
+            Bones3D = new Dictionary<string, GTAVector>();
             //(var gmin, var gmax) = e.Model.Dimensions;
-            GTABoundingBox bbox = new GTABoundingBox(e);
-            Bbox2d = bbox.To2D();
+            Bbox3d = new GTABoundingBox(e);
+            Bbox2d = Bbox3d.To2D();
+            //System.IO.File.AppendAllText("F:/datasets/GTA_V_anomaly/log.txt", "------------" + Handle.ToString() + "------------\n");
             foreach (EntityBone bone in e.Bones)
             {
                 try
                 {
-                    if (bbox.Contains(bone.Position))
-                    {
-                        var coord2d = HashFunctions.Convert3dTo2d(bone.Position, out bool success);
-                        if (success)
-                        {
-                            Bones.Add(bone.Index.ToString(), new GTAVector2(coord2d));
-                        }
-                    }
+                    //if (Bbox3d.Contains(bone.Position))
+                    //{
+                        //System.IO.File.AppendAllText("F:/datasets/GTA_V_anomaly/log.txt", "accepted bone: " + bone. + "\n");
+                    //var coord2d = HashFunctions.Convert3dTo2d(bone.Position, out bool success);
+                    //if (success)
+                    //{
+                    //    Bones2D.Add(bone.Index.ToString(), new GTAVector2(coord2d));
+                    //}
+                    Bones3D.Add(bone.Index.ToString(), new GTAVector(bone.Position));
+                    //}
+                    //else
+                    //{
+                    //    //System.IO.File.AppendAllText("F:/datasets/GTA_V_anomaly/log.txt", "rejected bone: " + bone.ToString() + "\n");
+                    //}
                 }
                 catch
                 {
@@ -202,19 +212,33 @@ namespace GTA5Event
             }
         }
 
-        public GTADetection(Ped p) : this(p, DetectionType.person) { }
-        public GTADetection(Vehicle v) : this(v, DetectionType.car) { }
+        public GTADetection(Ped p) : this(p, DetectionType.person) 
+        {
+            this.SeatIndex = (int) p.SeatIndex;
+            this.Gender = (int)p.Gender;
+        }
+        public GTADetection(Vehicle v) : this(v, DetectionType.car)
+        {
+            this.VehicleClass = (int) v.ClassType;
+        }
         public static GTADetection CreateDetection(Entity e)
         {
             if (e is Ped p) 
                 return new GTADetection(p, DetectionType.person);
             else if (e is Vehicle v)
             {
-                if (v.Model.IsBicycle)
-                    return new GTADetection(v, DetectionType.bicycle);
-                if (v.Model.IsBike)
-                    return new GTADetection(v, DetectionType.bike);
-                return new GTADetection(v, DetectionType.car);
+                //if (v.Model.IsBicycle)
+                //    return new GTADetection(v, DetectionType.bicycle);
+                //else if (v.Model.IsBike)
+                //    return new GTADetection(v, DetectionType.bike);
+                //else if (v.Model.IsBus)
+                //    return new GTADetection(v, DetectionType.bus);
+                //else if (v.Model.IsVan)
+                //    return new GTADetection(v, DetectionType.van);
+                //else if (v.Model.IsTrain)
+                //    return new GTADetection(v, DetectionType.train);
+                //else 
+                    return new GTADetection(v, DetectionType.car);
             }
             else return new GTADetection(e, DetectionType.entity);
         }
@@ -260,6 +284,32 @@ namespace GTA5Event
         }
     }
 
+    public class GTAMatrix
+    {
+        public double[] Values { get; set; }
+        public int ColumnCount { get; set; }
+        public int RowCount { get; set; }
+        public GTAMatrix() { }
+        public GTAMatrix(double[] values, int cols, int rows)
+        {
+            this.Values = values;
+            this.ColumnCount = cols;
+            this.RowCount = rows;
+        }
+
+        public GTAMatrix(DenseMatrix m)
+        {
+            this.Values = m.Values;
+            this.RowCount = m.RowCount;
+            this.ColumnCount = m.ColumnCount;
+        }
+
+        public static explicit operator DenseMatrix(GTAMatrix m)
+        {
+            return new DenseMatrix(m.RowCount, m.ColumnCount, m.Values);
+        }
+    }
+
     public class GTAVector2
     {
         public float X { get; set; }
@@ -295,7 +345,7 @@ namespace GTA5Event
             ret.Detections = new List<GTADetection>();
             foreach (GTADetection d in pedList.ToList())
             {
-                if (d.Bones.Count > 3)
+                if (d.Bones3D.Count > 3)
                     ret.Detections.Add(d);
             }
             return ret;
@@ -304,27 +354,14 @@ namespace GTA5Event
         public static void ShowBoundingBoxes()
         {
             //var entities = World.GetNearbyEntities(World.RenderingCamera.Position, 200f);
-            var entities = World.GetNearbyEntities(Game.Player.Character.Position, 200f);
+            var entities = World.GetNearbyEntities(Game.Player.Character.Position, 10f);
             var entityList = from entity in entities
                                  //where entity != null && entity.IsOnScreen && !entity.IsOccluded && (entity.Model.IsBicycle || entity.Model.IsBike || entity.Model.IsVehicle || entity.Model.IsPed)
                              where entity != null && (entity.Model.IsBicycle || entity.Model.IsBike || entity.Model.IsVehicle || entity.Model.IsPed)
                              select entity;
             foreach (Entity e in entityList)
             {
-                //byte green, red;
-                //var x = HashFunctions.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(Game.Player.Character, e);
-                ////GTA.UI.Notification.Show("" + x);
-                //if (x)
-                //{
-                //    continue;
-                //    green = 255;
-                //    red = 0;
-                //}
-                //else
-                //{
-                //    green = 0;
-                //    red = 255;
-                //}
+                
                 var boundingBox = new GTABoundingBox(e);
                 var corners = boundingBox.CornerPoints;
                 for (int i = 0; i < corners.Length; ++i)
@@ -334,40 +371,30 @@ namespace GTA5Event
                         if (j == i) continue;
                         var c1 = corners[i];
                         var c2 = corners[j];
-                        HashFunctions.Draw3DLine(c1, c2, 0, 0);
+                        HashFunctions.Draw3DLine(c1, c2, 0, 0, 255);
                     }
                 }
-                //var bbox2d = boundingBox.To2D();
-                //var w = bbox2d.Max.X - bbox2d.Min.X;
-                //var h = bbox2d.Max.Y - bbox2d.Min.Y;
+                foreach (EntityBone bone in e.Bones)
+                {
 
-                //HashFunctions.DrawRect(bbox2d.Min.X + w/2f, bbox2d.Min.Y + h/2f, w, h, red, green, 0,255);
+                    if (boundingBox.Contains(bone.Position))
+                        {
+                            //World.DrawMarker(MarkerType.DebugSphere, bone.Position, Vector3.Zero, Vector3.Zero, new Vector3(0.05f, 0.05f, 0.05f), System.Drawing.Color.Green);
+                        }
+                        else
+                        {
+                            World.DrawMarker(MarkerType.DebugSphere, bone.Position, Vector3.Zero, Vector3.Zero, new Vector3(0.05f, 0.05f, 0.05f), System.Drawing.Color.Red);
+                        }
+                }
             }
         }
 
-        public static GTAData DumpEntityData() // TODO FIX THIS!
+        public static GTAData DumpEntityData()
         {
             var ret = new GTAData();
-            //var constants = VisionNative.GetConstants();
-            //if (!constants.HasValue) return null;
-            //var W = MathNet.Numerics.LinearAlgebra.Single.DenseMatrix.OfColumnMajor(4, 4, constants.Value.world.ToArray()).ToDouble();
-            //var WV =
-            //    MathNet.Numerics.LinearAlgebra.Single.DenseMatrix.OfColumnMajor(4, 4,
-            //        constants.Value.worldView.ToArray()).ToDouble();
-            //var WVP =
-            //    MathNet.Numerics.LinearAlgebra.Single.DenseMatrix.OfColumnMajor(4, 4,
-            //        constants.Value.worldViewProjection.ToArray()).ToDouble();
-            ////constants.Value.worldViewProjection.Invert();
-
-            //var V = WV * W.Inverse();
-            //var P = WVP * WV.Inverse();
-            //ret.ProjectionMatrix = P as DenseMatrix;
-            //ret.ViewMatrix = V as DenseMatrix;
-            //ret.WorldMatrix = W as DenseMatrix;
-
             var entities = World.GetNearbyEntities(Game.Player.Character.Position, 200f);
             var entityList = from entity in entities
-                             where entity != null && (entity.Model.IsBicycle || entity.Model.IsBike || entity.Model.IsVehicle || entity.Model.IsPed)
+                             where entity != null && (entity.Model.IsBicycle || entity.Model.IsBike || entity.Model.IsVehicle || entity.Model.IsPed) && entity.Handle != Game.Player.Character.Handle
                              select GTADetection.CreateDetection(entity);
 
             //var entities = World.GetNearbyEntities(World.RenderingCamera.Position, 200f);
@@ -379,7 +406,7 @@ namespace GTA5Event
             ret.Detections = new List<GTADetection>();
             foreach (GTADetection d in entityList)
             {
-                if (d.Bones.Count > 3)
+                if (d.Bones3D.Count > 3)
                 {
                     ret.Detections.Add(d);
                 }

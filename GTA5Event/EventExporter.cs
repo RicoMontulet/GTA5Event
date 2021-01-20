@@ -4,12 +4,14 @@ using IniParser;
 using Newtonsoft.Json;
 using SharpDX;
 using System;
+using IniParser.Model;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
-
+using System.Globalization;
+using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace GTA5Event
 {
@@ -26,7 +28,7 @@ namespace GTA5Event
         private readonly int MinGroupSize;
         private readonly int MaxPeds;
         private readonly Player player;
-        private bool notificationsEnabled = true;
+        private bool NotificationsEnabled = true;
         private static readonly Random random = new Random();
         private readonly List<Ped> spawnedPeds = new List<Ped>();
         private readonly List<Vehicle> spawnedVehicles = new List<Vehicle>();
@@ -43,7 +45,8 @@ namespace GTA5Event
         private string rootDir;
         private string processedDir;
         private readonly int TotalFrames;
-        private readonly int EventFrame;
+        private readonly int FirstEventFrame;
+        private readonly int SecondEventFrame;
         private string locationDir;
         private int LocationCounter = 0;
         private int frameRenderDelay;
@@ -55,6 +58,7 @@ namespace GTA5Event
         private static byte[] depth;
         private static byte[] stencil;
         private static Bitmap color;
+        private static Dictionary<string, object> Parameters = new Dictionary<string, object>();
 
         public EventExporter()
         {
@@ -63,77 +67,94 @@ namespace GTA5Event
             var data = parser.ReadFile(Directory.GetCurrentDirectory() + "/Scripts/gta_config.ini");
 
             dataPath = data["directories"]["location_dir"];
+            if (!Directory.Exists(dataPath)) 
+                Directory.CreateDirectory(dataPath);
 
             logFilePath = data["directories"]["log_dir"];
 
+            File.WriteAllText(logFilePath, "EventExporter constructor called.\n");
+            File.AppendAllText(logFilePath, "Resolution: " + screenResolution + "\n");
+
             // Parse config
-            var config = data["config"];
-            LowerGroupDiv = int.Parse(config["lowerGroupDiv"]);
-            LowerGroupSizeDiv = int.Parse(config["lowerGroupSizeDiv"]);
-            MinGroupSize = int.Parse(config["minGroupSize"]);
-            MaxPeds = int.Parse(config["maxPeds"]);
+
+            ParseIntegerParams(data);
+            ParseFloatParams(data);
+            ParseBooleanParams(data);
+            ParseListOfIntegerParams(data);
+            ParseListOfStringParams(data);
+            ParseTimestampParams(data);
 
 
-            TotalFrames = int.Parse(config["n_frames"]);
-            EventFrame = int.Parse(config["event_frame"]);
-            if (EventFrame > TotalFrames)
+            LowerGroupDiv = (int) Parameters["LowerGroupDiv"];
+            LowerGroupSizeDiv = (int) Parameters["LowerGroupSizeDiv"];
+            MinGroupSize = (int) Parameters["MinGroupSize"];
+            MaxPeds = (int) Parameters["MaxPeds"];
+            TotalFrames = (int) Parameters["TotalFrames"];
+            FirstEventFrame = (int) Parameters["FirstEventFrame"];
+            SecondEventFrame = (int) Parameters["SecondEventFrame"];
+            
+            if (FirstEventFrame > TotalFrames)
             {
-                GTA.UI.Notification.Show("Warning! EventFrame > TotalFrames so event will never happen!");
+                GTA.UI.Notification.Show("Warning! FirstEventFrame > TotalFrames so event will never happen!");
             }
-            if (EventFrame < 0)
+            if (FirstEventFrame < 0)
             {
-                GTA.UI.Notification.Show("Warning! EventFrame < 0 event will happen immediatly!");
-
+                GTA.UI.Notification.Show("Warning! FirstEventFrame < 0 event will happen immediatly!");
             }
+            if (SecondEventFrame > TotalFrames)
+            {
+                GTA.UI.Notification.Show("Warning! SecondEventFrame > TotalFrames so event will never happen!");
+            }
+            if (SecondEventFrame < 0)
+            {
+                GTA.UI.Notification.Show("Warning! SecondEventFrame < 0 event will happen immediatly!");
+            }
+
             if (TotalFrames < 1)
             {
-                GTA.UI.Notification.Show("Warning! Totalframes < 1. Script will crash now");
+                GTA.UI.Notification.Show("Error! Totalframes < 1. Script will crash now");
                 throw new Exception("Totalframes < 1");
-
             }
-            notificationsEnabled = bool.Parse(config["in_game_notifications"]);
 
-            var weathers = new List<Weather>();
-            foreach (var w in config["weather"].Replace(" ", "").Split(','))
+            NotificationsEnabled = (bool)Parameters["NotificationsEnabled"];
+
+            var weatherOptions = (List<string>)Parameters["Weather"];
+            var weatherEnums = new List<Weather>();
+            foreach (var w in weatherOptions)
             {
-                weathers.Add((Weather)Enum.Parse(typeof(Weather), w));
+                weatherEnums.Add((Weather)Enum.Parse(typeof(Weather), w));
             }
-            wantedWeather = weathers.ToArray();
+            wantedWeather = weatherEnums.ToArray();
 
-            Actions = config["actions"].Replace(" ", "").Split(',');
+            Actions = ((List<string>)Parameters["Actions"]).ToArray();
 
-            var fpss = new List<int>();
-            foreach (var w in config["fps"].Replace(" ", "").Split(','))
+            Fps_Options = ((List<int>)Parameters["Fps"]).ToArray();
+
+            var startTime = (string[])Parameters["StartTime"];
+            var endTime = (string[])Parameters["EndTime"];
+
+            if (startTime.Length != 3 || endTime.Length != 3)
             {
-                fpss.Add(int.Parse(w));
+                GTA.UI.Notification.Show("Error! Starttime or endtime format is wrong! Should be HH:MM:SS. Script will crash now");
+                throw new Exception("Starttime or endtime not of format HH:MM:SS");
             }
-            Fps_Options = fpss.ToArray();
+            var timeIntervals = (int)Parameters["timeIntervals"];
 
-            var start_time = config["time_start"].Replace(" ", "").Split(':');
-            var end_time = config["time_end"].Replace(" ", "").Split(':');
-            int time_intervals = int.Parse(config["time_intervals"].Replace(" ", ""));
+            var start_timespan = new TimeSpan(int.Parse(startTime[0]), int.Parse(startTime[1]), int.Parse(startTime[2]));
+            var end_timespan = new TimeSpan(int.Parse(endTime[0]), int.Parse(endTime[1]), int.Parse(endTime[2]));
 
-            var start_timespan = new TimeSpan(int.Parse(start_time[0]), int.Parse(start_time[1]), int.Parse(start_time[2]));
-            var end_timespan = new TimeSpan(int.Parse(end_time[0]), int.Parse(end_time[1]), int.Parse(end_time[2]));
-
-            var time_delta = TimeSpan.FromTicks((end_timespan - start_timespan).Ticks / (time_intervals - 1));
+            var time_delta = TimeSpan.FromTicks((end_timespan - start_timespan).Ticks / (timeIntervals - 1));
 
             var time_stamps = new List<TimeSpan>();
-            for (int i = 0; i < time_intervals; i++)
+            for (int i = 0; i < timeIntervals; i++)
             {
                 time_stamps.Add(start_timespan);
                 start_timespan += time_delta;
             }
             TimesOfDay = time_stamps.ToArray();
 
-            File.WriteAllText(logFilePath, "EventExporter constructor called.\n");
-
-            if (!Directory.Exists(dataPath)) Directory.CreateDirectory(dataPath);
-
             player = Game.Player;
-            //this.Tick += new EventHandler(this.OnTick);
             this.KeyDown += this.OnKeyDown;
-            //Interval = 300;
             currentLocation = -1;
 
             GTA.UI.Notification.Show(
@@ -145,7 +166,95 @@ namespace GTA5Event
                 "fps:" + string.Join(",", Fps_Options) + "\n" +
                 "times_of_day:" + string.Join(",", TimesOfDay) + "\n"
             );
-            //Wait(10000);
+            int height = (int)Parameters["Height"];
+            int width = (int)Parameters["Width"];
+            if (screenResolution.Width != width || screenResolution.Height != height)
+            {
+                GTA.UI.Notification.Show(
+                    "The current game resolution != config res, please change!\n" +
+                    "config: " + width + "x" + height + "\n" +
+                    "game: " + screenResolution.Width + "x" + screenResolution.Height);
+            }
+            Game.TimeScale = 1.0f;
+        }
+
+        private void ParseIntegerParams(IniData data)
+        {
+            var config = data["ints"];
+            foreach (var key in config)
+            {
+                Parameters.Add(key.KeyName, int.Parse(key.Value));
+                File.AppendAllText(logFilePath, "Parsed int: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
+        }
+        private void ParseFloatParams(IniData data)
+        {
+            var config = data["floats"];
+            foreach (var key in config)
+            {
+                Parameters.Add(key.KeyName, float.Parse(key.Value, CultureInfo.InvariantCulture.NumberFormat));
+                File.AppendAllText(logFilePath, "Parsed float: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
+        }
+
+        private void ParseBooleanParams(IniData data)
+        {
+            var config = data["bools"];
+            foreach (var key in config)
+            {
+                Parameters.Add(key.KeyName, bool.Parse(key.Value));
+                File.AppendAllText(logFilePath, "Parsed bool: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
+            }
+
+            private void ParseListOfIntegerParams(IniData data)
+        {
+            var config = data["listOfInts"];
+            foreach (var key in config)
+            {
+                if (key.Value.Contains(","))
+                {
+                    var temp = new List<int>();
+                    foreach (var w in key.Value.Replace(" ", "").Split(','))
+                        temp.Add(int.Parse(w));
+                    Parameters.Add(key.KeyName, temp);
+                }
+                else
+                {
+                    Parameters.Add(key.KeyName, int.Parse(key.Value));
+                }
+                File.AppendAllText(logFilePath, "Parsed listofints: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
+        }
+
+        private void ParseListOfStringParams(IniData data)
+        {
+            var config = data["listOfStrings"];
+            foreach (var key in config)
+            {
+                if (key.Value.Contains(","))
+                {
+                    var temp = new List<string>();
+                    foreach (var w in key.Value.Replace(" ", "").Split(','))
+                        temp.Add(w);
+                    Parameters.Add(key.KeyName, temp);
+                }
+                else
+                {
+                    Parameters.Add(key.KeyName, key.Value);
+                }
+                File.AppendAllText(logFilePath, "Parsed listofstrings: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
+        }
+
+        private void ParseTimestampParams(IniData data)
+        {
+            var config = data["timestamps"];
+            foreach (var key in config)
+            {
+                Parameters.Add(key.KeyName, key.Value.Replace(" ", "").Split(':'));
+                File.AppendAllText(logFilePath, "Parsed timestamps: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+            }
         }
 
         private void WriteFiles(GTAData data, Bitmap color, byte[] depth, byte[] stencil, string path, bool forceWrite = false)
@@ -205,7 +314,7 @@ namespace GTA5Event
             if (currentLocation < locations.Count)
             {
                 GTALocation tempLocation = locations[currentLocation];
-                // skip already processed locations
+                // recursively skip already processed locations
                 if (processed.Contains(tempLocation.LocationName))
                 {
                     MoveToNextLocation();
@@ -219,16 +328,8 @@ namespace GTA5Event
                 player.Character.Rotation = new GTA.Math.Vector3(tempLocation.PlayerRotation.X, tempLocation.PlayerRotation.Y, tempLocation.PlayerRotation.Z);
                 World.RenderingCamera.Position = new GTA.Math.Vector3(tempLocation.CameraPosition.X, tempLocation.CameraPosition.Y, tempLocation.CameraPosition.Z);
                 World.RenderingCamera.Rotation = new GTA.Math.Vector3(tempLocation.CameraRotation.X, tempLocation.CameraRotation.Y, tempLocation.CameraRotation.Z);
-
+                // Create the directory if it doesn't already exists
                 Directory.CreateDirectory(locationDir);
-                //if (Directory.Exists(locationDir)) // skip already processed locations
-                //{
-                //    MoveToNextLocation();
-                //}
-                //else
-                //{
-                //    Directory.CreateDirectory(locationDir);
-                //}
             }
         }
 
@@ -239,21 +340,19 @@ namespace GTA5Event
             {
                 return;
             }
-            processing = true;
-
+            else
+            {
+                processing = true;
+            }
+            // Try is needed for resetting processing in the finally case (I forgot it sometimes, its just to prevent duplicate code)
             try
             {
-                // This function won't do anything in this state
-                if (currentState == ModState.CHOOSE_LOCATION)
+                // This function won't do anything in these states
+                if (currentState == ModState.CHOOSE_LOCATION || currentState == ModState.DONE)
                 {
                     return;
                 }
-                // This function won't do anything in this state
-                else if (currentState == ModState.DONE)
-                {
-                    return;
-                }
-                // This is only to try random stuff in (probably not in final version)
+                // This is only to try stuff in (probably not in final version)
                 else if (currentState == ModState.MESS_AROUND)
                 {
                     GTA.Math.Vector3 new_pos = World.RenderingCamera.Position + World.RenderingCamera.Direction * 0.5f;
@@ -265,7 +364,7 @@ namespace GTA5Event
                     GTAData.ShowBoundingBoxes();
                     return;
                 }
-                // This function draws current ROI if its not empty and projects where the next point will be placed at the end of the cursor and saves it in TempRoiPoint
+                // This function draws current ROI if it's not empty and projects where the next point will be placed at the end of the cursor and saves it in TempRoiPoint
                 else if (currentState == ModState.CHOOSE_ROI)
                 {
                     DrawCurrentROI(locations[currentLocation].ROI);
@@ -290,7 +389,7 @@ namespace GTA5Event
                                 GTA.UI.Notification.Show("All done with data collection!");
                                 return;
                             }
-                            // Set some time of day
+                            // Set some time of day and save it for annotations
                             locations[currentLocation].CurrentTime = TimesOfDay[random.Next(0, TimesOfDay.Length)];
                             World.CurrentTimeOfDay = locations[currentLocation].CurrentTime;
 
@@ -306,11 +405,11 @@ namespace GTA5Event
                             // Start the game and let it render for some time (to allow weather and time to change)
                             Game.TimeScale = 1.0f;
                             Wait(10000);
-                            Game.TimeScale = 0.0f;
+                            //Game.TimeScale = 0.0f;
 
                             // Spawn the clusters of peds and allow for some time to get the people settled
                             SpawnGroupsOfPeds();
-                            Game.TimeScale = 1.0f;
+                            //Game.TimeScale = 1.0f;
                             Wait(5000);
                             Game.TimeScale = 0.0f;
                         }
@@ -324,14 +423,14 @@ namespace GTA5Event
                         Game.TimeScale = 0.0f;
 
                         // Record the data, some sleeps are nessecary for vision plugin not to crash!
-                        GTAData data = GTAData.DumpPedsData();
+                        GTAData data = GTAData.DumpEntityData();
                         //Wait(45);
 
                         stencil = VisionNative.GetStencilBuffer();
                         //Wait(45);
 
                         // Name of the process GTA5(.exe)
-                        color = GrabScreen.ScreenShot("GTA5");
+                        color = GrabScreen.ScreenShot("GTA5", screenResolution.Width, screenResolution.Height);
                         Wait(45);
 
                         depth = VisionNative.GetDepthBuffer();
@@ -348,7 +447,7 @@ namespace GTA5Event
                         frameCounter++;
 
                         // Check if we should "stir the pot"
-                        if (frameCounter == 150)
+                        if (frameCounter == FirstEventFrame)
                         {
                             Ped last = null;
                             bool PreviousPedWalking = false;
@@ -384,7 +483,7 @@ namespace GTA5Event
                             }
                         }
                         // Check if we should "stir" again and reak heavok on the people
-                        else if (frameCounter == EventFrame)
+                        else if (frameCounter == SecondEventFrame)
                         {
                             GTALocation tempLocation = locations[currentLocation];
                             // "Fight", "FleeRandom", "FleeSame"
@@ -453,6 +552,15 @@ namespace GTA5Event
                                     }
                                 }
                             }
+                            //
+                            //
+                            //
+                            //
+                            // Feel free to add more Actions and implement how people should move/react :)
+                            //
+                            //
+                            //
+                            //
                         }
                         // End of this scene
                         else if (frameCounter == TotalFrames)
@@ -460,6 +568,27 @@ namespace GTA5Event
                             try
                             {
                                 GTALocation location = locations[currentLocation];
+                                
+                                var constants = VisionNative.GetConstants();
+                                var W = DenseMatrix.OfColumnMajor(4, 4, Utils.ToDouble(constants.Value.world.ToArray()));
+                                var WV =
+                                    DenseMatrix.OfColumnMajor(4, 4, Utils.ToDouble(constants.Value.worldView.ToArray()));
+                                var WVP =
+                                    DenseMatrix.OfColumnMajor(4, 4, Utils.ToDouble(constants.Value.worldViewProjection.ToArray()));
+                                //constants.Value.worldViewProjection.Invert();
+
+                                var V = (WV * W.Inverse()) as DenseMatrix;
+                                var P = (WVP * WV.Inverse()) as DenseMatrix;
+                                location.ProjectionMatrix = new GTAMatrix(P);
+                                location.ViewMatrix = new GTAMatrix(V);
+                                location.WorldMatrix = new GTAMatrix(W);
+                                
+
+                                location.CameraNearClip = World.RenderingCamera.NearClip;
+                                location.CameraFarClip = World.RenderingCamera.FarClip;
+                                location.CameraDirection = new GTAVector(World.RenderingCamera.Direction);
+                                location.CameraFOV = World.RenderingCamera.FieldOfView;
+
                                 string jsonName = Path.Combine(dataPath, "locations_processed/");
                                 Directory.CreateDirectory(jsonName);
                                 jsonName = Path.Combine(jsonName, location.LocationName + ".json");
@@ -495,7 +624,6 @@ namespace GTA5Event
             {
                 // Always set processing to false before returning
                 processing = false;
-                processing = false;
             }
         }
 
@@ -505,16 +633,23 @@ namespace GTA5Event
             public string LocationName { get; set; }
             public GTAVector CameraPosition { get; set; }
             public GTAVector CameraRotation { get; set; }
+            public GTAVector CameraDirection { get; set; }
+            public float CameraNearClip { get; set; }
+            public float CameraFarClip { get; set; }
+            public float CameraFOV { get; set; }
+            public int Fps { get; set; }
             public GTAVector PlayerPosition { get; set; }
             public GTAVector PlayerRotation { get; set; }
             public List<GTAVector> ROI { get; set; }
             public List<List<GTAVector>> PedGroups { get; set; }
             public List<GTAVector> GroupCenters { get; set; }
             public Dictionary<int, GTAVector> PedIdGroup { get; set; }
-            public int Fps { get; set; }
             public string Action { get; set; }
             public TimeSpan CurrentTime { get; set; }
             public Weather CurrentWeather { get; set; }
+            public GTAMatrix ProjectionMatrix { get; set; }
+            public GTAMatrix ViewMatrix { get; set; }
+            public GTAMatrix WorldMatrix { get; set; }
         }
 
         public void SpawnGroupsOfPeds()
@@ -528,14 +663,14 @@ namespace GTA5Event
             bool PreviousPedWalking;
             int nGroups, groupSize;
 
-            float area = Utils.PolygonArea(tempLocation.ROI); // Area of polygon
+            float area = Utils.PolygonArea(tempLocation.ROI); // Area of polygon, used to compute number of groups and group sizes
 
-            int lowerGroups = Math.Max(1, (int)(area / LowerGroupDiv)); // lower bound of the number of groups
-            int lowerGroupSize = Math.Max(MinGroupSize, (int)(area / LowerGroupSizeDiv)); // lower bound of the peds per group
+            int lowerNGroups = Math.Max(1, (int)(area / LowerGroupDiv)); // lower bound of the number of groups, upperbound is two times lowerbound
+            int lowerGroupSize = Math.Max(MinGroupSize, (int)(area / LowerGroupSizeDiv)); // lower bound of the peds per group, upperbound is two times lowerbound
 
-            if (notificationsEnabled) GTA.UI.Notification.Show("Area: " + area + " [" + lowerGroups + ", " + 2 * lowerGroups + "] [" + lowerGroupSize + ", " + 2 * lowerGroupSize + "]");
+            if (NotificationsEnabled) GTA.UI.Notification.Show("Area: " + area + " [" + lowerNGroups + ", " + 2 * lowerNGroups + "] [" + lowerGroupSize + ", " + 2 * lowerGroupSize + "]");
 
-            nGroups = random.Next(lowerGroups, 2 * lowerGroups);
+            nGroups = random.Next(lowerNGroups, 2 * lowerNGroups);
             for (int n = 0; n < nGroups; n++)
             {
                 groupSize = random.Next(lowerGroupSize, 2 * lowerGroupSize);
@@ -547,13 +682,13 @@ namespace GTA5Event
                 int radius = (int)(Math.Sqrt(groupSize / Math.PI) * random.NextDouble(1.2, 2.4));
                 for (int i = 0; i < groupSize; i++)
                 {
-                    // Cap the maximum number of peds we spawn at 100 (GTA has hard coded limit of 256 but this includes all peds that where already in the world)
-                    // You can change this limit if you encounter instabilities.
+                    // Cap the maximum number of peds we spawn at MaxPeds (GTA has hard coded limit of 256 but this includes all peds that where already in the world)
+                    // You can change this limit in config file if you encounter instabilities.
                     if (spawnedPeds.Count > MaxPeds)
                     {
                         return;
                     }
-                    // Create a point within radius from the cluster center
+                    // Create a point within radius from the cluster center, since this is run only once per video inefficient code doesnt matter :P
                     while (true)
                     {
                         PedLocation = Utils.RandPointInPoly(tempLocation);
@@ -577,24 +712,41 @@ namespace GTA5Event
                     x.Heading = a.Z;
                     x.Rotation = a;
 
-                    // Add his to a list such that we can clear them later
+                    // Add ped to a list such that we can delete them later
                     spawnedPeds.Add(x);
+                    // Save his starting location and group for logging purposes
                     tempLocation.PedGroups[n].Add(PedLocation);
                     tempLocation.PedIdGroup.Add(x.Handle, groupCenter);
+                    
                     // Give ped some task
-                    if (random.NextDouble() < 0.8)
+
+                    // They can use the phone while walking so this is seperate "if"
+                    if (random.NextDouble() < (float)Parameters["PhoneProbability"])
                     {
-                        x.Task.WanderAround(x.Position, random.Next(10, 15));
+                        x.Task.UseMobilePhone(50000);
+                    }
+
+                    if (random.NextDouble() < (float)Parameters["WalkProbability"])
+                    {
+                        x.Task.WanderAround(x.Position, random.Next((int)(0.5*radius), (int)(3*radius))); // Explore within your groups 0.5*radius and 2*radius, feel free to change
                         PreviousPedWalking = true;
                     }
-                    else if (PreviousPed != null && !PreviousPedWalking)
+                    else if (PreviousPed != null && !PreviousPedWalking) // peds can't walk and talk sadly so elif
                     {
                         PreviousPedWalking = false;
                         x.Task.ChatTo(PreviousPed);
                         PreviousPed.Task.ChatTo(x);
                         PreviousPed = x;
                     }
-
+                    //
+                    //
+                    //
+                    //
+                    // Feel free to add more Tasks and implement how people should move/react :)
+                    //
+                    //
+                    //
+                    //
                 }
             }
         }
@@ -719,7 +871,7 @@ namespace GTA5Event
                     processed.Add(tempLocation.LocationName);
                 }
             }
-            if (notificationsEnabled)
+            if (NotificationsEnabled)
             {
                 GTA.UI.Notification.Show("Succesfully loaded " + locations.Count + " locations. " + processed.Count + " already processed.");
             }
@@ -744,7 +896,7 @@ namespace GTA5Event
                     File.AppendAllText(logFilePath, "STACK2: " + exception.StackTrace.ToString() + "\n");
                 }
             }
-            if (notificationsEnabled) GTA.UI.Notification.Show("Saved all locations to " + Path.Combine(dataPath, "locations"));
+            if (NotificationsEnabled) GTA.UI.Notification.Show("Saved all locations to " + Path.Combine(dataPath, "locations"));
         }
         // Draw ROI of current location
         private void DrawCurrentROI(List<GTAVector> markers)
@@ -775,15 +927,15 @@ namespace GTA5Event
         {
             if (k.KeyCode == Keys.Z)
             {
-                if (notificationsEnabled)
+                if (NotificationsEnabled)
                 {
                     GTA.UI.Notification.Show("Notifications Disabled");
-                    notificationsEnabled = false;
+                    NotificationsEnabled = false;
                 }
                 else
                 {
                     GTA.UI.Notification.Show("Notifications Enabled");
-                    notificationsEnabled = true;
+                    NotificationsEnabled = true;
 
                 }
                 return;
@@ -854,10 +1006,10 @@ namespace GTA5Event
                         string name = Game.GetUserInput();
                         if (name.Equals(""))
                         {
-                            if (notificationsEnabled) GTA.UI.Notification.Show("Aborted; No new location was created.");
+                            if (NotificationsEnabled) GTA.UI.Notification.Show("Aborted; No new location was created.");
                             return;
                         }
-                        if (notificationsEnabled) GTA.UI.Notification.Show("Added current location [" + name + "] as new location");
+                        if (NotificationsEnabled) GTA.UI.Notification.Show("Added current location [" + name + "] as new location");
                         tempLocation.LocationName = name;
 
                         currentLocation = locations.Count;
@@ -873,7 +1025,7 @@ namespace GTA5Event
                             GTA.UI.Notification.Show("Locations empty! Please add new location first");
                             return;
                         }
-                        if (notificationsEnabled) GTA.UI.Notification.Show("Added current location as new ROI point, resetting player to camera location.");
+                        if (NotificationsEnabled) GTA.UI.Notification.Show("Added current location as new ROI point, resetting player to camera location.");
                         GTALocation tempLocation = locations[currentLocation];
                         //var pos = new GTAVector(player.Character.Position);
                         //pos.Z -= player.Character.HeightAboveGround;
@@ -963,7 +1115,7 @@ namespace GTA5Event
                         Wait(45);
 
                         // Name of the process GTA5(.exe)
-                        color = GrabScreen.ScreenShot("GTA5");
+                        color = GrabScreen.ScreenShot("GTA5", screenResolution.Width, screenResolution.Height);
                         Wait(45);
 
                         depth = VisionNative.GetDepthBuffer();
@@ -990,6 +1142,7 @@ namespace GTA5Event
                     this.currentState = ModState.CHOOSE_LOCATION;
                     return;
                 }
+                if (this.currentLocation == -1) this.currentLocation = 0;
                 this.currentState = ModState.CHOOSE_ROI;
 
                 GTA.UI.Notification.Show("Choose the desired ROI by positioning camera where you want and press \"U\" to update ROI. \"K\" to remove last. \"R\" to reset camera.");
@@ -1005,7 +1158,17 @@ namespace GTA5Event
                     GTA.UI.Notification.Show("Locations empty! Please add new location first");
                     return;
                 }
-                notificationsEnabled = false;
+                int height = (int)Parameters["Height"];
+                int width = (int)Parameters["Width"];
+                if (screenResolution.Width != width || screenResolution.Height != height)
+                {
+                    GTA.UI.Notification.Show(
+                        "The current game resolution != config res Please change before pressing f12 again!\n" +
+                        "config: " + width + "x" + height + "\n" +
+                        "game: " + screenResolution.Width + "x" + screenResolution.Height);
+                    return;
+                }
+                NotificationsEnabled = false;
                 this.currentState = ModState.COLLECTING_DATA;
                 this.Interval = 300;
                 Game.TimeScale = 1.0f;

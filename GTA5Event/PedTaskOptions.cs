@@ -2,11 +2,11 @@
 {
     enum PedTaskOptions
     {
-        //Walking, // TODO These 4 are special cases which I cant feed into startscenario, handle seperately
+        //Walking, // TODO These are special cases which I cant feed into startscenario, handle seperately
         //Running,
-        //Shooting,
-        //Driving,
         //Standing,
+
+        // Commented options don't seem to do anything?
         //WORLD_HUMAN_AA_COFFEE,
         //WORLD_HUMAN_AA_SMOKE,
         WORLD_HUMAN_BINOCULARS,
