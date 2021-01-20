@@ -61,7 +61,7 @@ PageUp : Enable the plugin and load previously created scenes
 
 - ANY STATE:
 	- Z : toggle on and off in game notifications (disable notifications when collecting data)
-	- N : Save all locations to disk
+	- N : Save all locations to disk (folder is specified in [gta_config.ini](gta_config.ini))
 - F10:
 	- L : Add new location, you will be promted for a name.
 	- [ : Go to previous location

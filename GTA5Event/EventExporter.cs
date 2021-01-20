@@ -1023,7 +1023,7 @@ namespace GTA5Event
                         currentLocation = locations.Count;
                         locations.Add(tempLocation);
 
-                    }
+                    }                    
                     break;
                 case ModState.CHOOSE_ROI:
                     if (k.KeyCode == Keys.U)
