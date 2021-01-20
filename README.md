@@ -1,3 +1,5 @@
+![Summary of the annotations.](resources/annotations.png)
+
 ## Requirements
 * GTAVisionNative (compile from source [here](https://github.com/umautobots/GTAVisionExport/tree/master/native) or download x64 [here](https://github.com/umautobots/GTAVisionExport/files/1703454/native64bit.zip))
 * ScriptHookV (download [here](http://www.dev-c.com/gtav/scripthookv/))
