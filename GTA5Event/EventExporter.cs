@@ -1006,10 +1006,18 @@ namespace GTA5Event
                         string name = Game.GetUserInput();
                         if (name.Equals(""))
                         {
-                            if (NotificationsEnabled) GTA.UI.Notification.Show("Aborted; No new location was created.");
+                            GTA.UI.Notification.Show("Aborted; No new location was created.");
                             return;
                         }
-                        if (NotificationsEnabled) GTA.UI.Notification.Show("Added current location [" + name + "] as new location");
+                        GTA.UI.Notification.Show("Added current location [" + name + "] as new location");
+                        foreach (GTALocation other in locations)
+                        {
+                            if (other.LocationName.Equals(name))
+                            {
+                                GTA.UI.Notification.Show("Aborted; Location has the same name as existing location!");
+                                return;
+                            }
+                        }
                         tempLocation.LocationName = name;
 
                         currentLocation = locations.Count;

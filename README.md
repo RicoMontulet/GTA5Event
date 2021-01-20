@@ -51,9 +51,10 @@ When this state is active you can scout the game to find locations, using "[ ]" 
 When this state is active you can create a ROI for the currently selected location, ie use state F10 to select a location with "[ ]" keys and press F11. If you have a ROI saved already for the current location it will show you this in game. If not, you can use the mouse to position the sphere where you want a corner of the ROI to be. Use "U" to update the ROI (note: ROI is defined as a closed polygon). You can use "K" to remove the last corner point in case you messed up.
 
 ### F12 Record Data:
+# !!!IMPORTANT!!! Use N to save all the locations before pressing F12 (game can crash during data collection)
+
 When this state is active it will put the camera in the first location and start the data collection process. It will automatically cycle through all available locations and make a new folder "locations_processed" where it will save a new json containing the FPS, cluster centers and locations of people. Make sure the game screen is in front of any other windows since screenshots are used for RGB data. It's best to now alt-tab out of the game (so you don't mouse the mouse accidentally) and leave the pc alone until it's done gathering data.
 
-# !!!IMPORTANT!!! Use N to save all the locations before pressing F12 (game can crash during data collection)
 
 ## TLDR - Keymappings:
 PageUp : Enable the plugin and load previously created scenes
