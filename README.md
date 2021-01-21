@@ -70,6 +70,8 @@ PageUp : Enable the plugin and load previously created scenes
 	- U : Update ROI polygon with the sphere's location
 	- K : Remove last ROI point from current location
 
+### Post processing
+To load the data in python please have a look in the [post processing code](postprocessing/main.py).
 
 ## APPENDIX:
 ### Stencil (bitmap):
@@ -81,7 +83,7 @@ PageUp : Enable the plugin and load previously created scenes
 - 7 : sky
 
 ### Depth:
-For more information on what the depth image contains exactly, please take a look [here](http://www.adriancourreges.com/blog/2015/11/02/gta-v-graphics-study/) and [here](https://www.groundai.com/project/precise-synthetic-image-and-lidar-presil-dataset-for-autonomous-vehicle-perception/1)
+Please look at the [post processing code](postprocessing/main.py) to find out how to use the depth information since these are NDC values, not meters!
 
 ### Annotations:
 The location json contains:
@@ -105,6 +107,7 @@ The frame json contains:
 
 ### Aknowledgement
 - Borrowing code from [umautobots](https://github.com/umautobots/GTAVisionExport)
+- Borrowing post processing code from [racinmat](https://github.com/racinmat/GTAVisionExport-postprocessing)
 - Thanks to [H2020 Mindspaces](https://mindspaces.eu/) for funding
 - Publishing data from game according to [Rockstar Games](https://support.rockstargames.com/articles/200153756/Policy-on-posting-span-class-highlight-copyright-span-ed-Rockstar-Games-material)
 
