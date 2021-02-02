@@ -12,8 +12,7 @@ namespace GTA5Event
 
         public static GTA.Math.Vector3 RaycastFromCoord(float x, float y, Entity ignore, float maxDist, float failDist) // 0, 0 is center screen
         {
-            RaycastResult res = new RaycastResult();
-            return RaycastFromCoord(x, y, ignore, maxDist, failDist, out res);
+            return RaycastFromCoord(x, y, ignore, maxDist, failDist, out RaycastResult res);
         }
 
         public static GTA.Math.Vector3 RaycastFromCoord(float x, float y, Entity ignore, float maxDist, float failDist, out RaycastResult res) // 0, 0 is center screen
@@ -24,11 +23,10 @@ namespace GTA5Event
 
             GTA.Math.Vector3 WorldCoord = ScreenToWorld(screenCoords, camera);
 
-            GTA.Math.Vector3 vector3 = position;
-            GTA.Math.Vector3 vector31 = WorldCoord - vector3;
+            GTA.Math.Vector3 vector31 = WorldCoord - position;
             vector31.Normalize();
 
-            res = World.Raycast(vector3 + (vector31 * 1.0f), vector3 + (vector31 * maxDist), (IntersectFlags)287, ignore);
+            res = World.Raycast(position + (vector31 * 1.0f), position + (vector31 * maxDist), (IntersectFlags)287, ignore);
             if (res.DidHit)
             {
                 return res.HitPosition;

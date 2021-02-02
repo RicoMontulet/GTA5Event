@@ -7,6 +7,32 @@ namespace GTA5Event
 {
     public class HashFunctions
     {
+        public static bool IsOnScreen(Vector3 pos)
+        {
+            return Function.Call<bool>(Hash.GET_SCREEN_COORD_FROM_WORLD_COORD, (InputArgument)pos.X, (InputArgument)pos.Y, (InputArgument)pos.Z, (InputArgument)new OutputArgument(), (InputArgument)new OutputArgument());
+        }
+
+        public static bool IsOnScreen(Entity e)
+        {
+            foreach (EntityBone bone in e.Bones)
+            {
+                try
+                {
+                    var pos = bone.Position;
+                    bool success = Function.Call<bool>(Hash.GET_SCREEN_COORD_FROM_WORLD_COORD, (InputArgument)pos.X, (InputArgument)pos.Y, (InputArgument)pos.Z, (InputArgument)new OutputArgument(), (InputArgument)new OutputArgument());
+                    if (success)
+                    {
+                        return true;
+                    }
+                }
+                catch
+                {
+                    continue;
+                }
+            }
+            return false;
+        }
+
         public static Vector2 Convert3dTo2d(Vector3 pos, out bool success)
         {
             OutputArgument tmpResX = new OutputArgument();

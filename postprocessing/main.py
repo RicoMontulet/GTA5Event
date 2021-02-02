@@ -51,19 +51,36 @@ def draw_tight_bbox(image, anno, color):
             continue
         bbox_3d_screen.append((screen_x, screen_y))
     x, y, w, h = cv2.boundingRect(np.array(bbox_3d_screen))
-    image = cv2.rectangle(image, (x, y), (x+w, y+h), color, thickness=3)
+    image = cv2.rectangle(image, (x, y), (x + w, y + h), color, thickness=3)
 
 
 def draw_3d_bones(image, anno, view_matrix, proj_matrix, color):
     height, width, _ = image.shape
     for p in anno["Bones3D"].values():
+        visible = p["IsVisible"]
+        material = p["material"]
+        p = p["Pos"]
         p_world = p["X"], p["Y"], p["Z"]
+
         pixel_pos = world_coords_to_pixel(p_world, view_matrix, proj_matrix, width, height)
         screen_x, screen_y = pixel_pos.astype(int)
         ndc_y, ndc_x = pixel_to_ndc((screen_y, screen_x), (height, width))
         if ndc_x < -1 or ndc_x > 1 or ndc_y < -1 or ndc_y > 1:
             continue
-        image = cv2.circle(image, (screen_x, screen_y), 2, color, 2)
+        b = 0
+        r = 0
+        if visible == 1:
+            g = 127
+        elif visible == 0:
+            g = 255
+        else:
+            g = 0
+            print(material)
+
+
+        image = cv2.circle(image, (screen_x, screen_y), 2, (b, g, r), 2)
+        # else:
+        #     image = cv2.circle(image, (screen_x, screen_y), 2, (0, 0, 255), 2)
 
 
 if __name__ == '__main__':
@@ -72,7 +89,9 @@ if __name__ == '__main__':
 
     # contruct projection matrix since one from file has numerical stability issues
     fov = location_data["CameraFOV"]
-    proj_matrix = construct_proj_matrix(1440, 2560, fov, 0.15, 800)
+    near_clip = location_data['CameraNearClip']
+    far_clip = location_data['CameraFarClip']
+    proj_matrix = construct_proj_matrix(1440, 2560, fov, near_clip, far_clip)
 
     # load view matrix from file and set small values to 0
     view_matrix = np.array(location_data["ViewMatrix"]["Values"]).reshape((4, 4)).T  # Transpose: c# saves columns wise
@@ -118,7 +137,7 @@ if __name__ == '__main__':
         depth = depth_crop_and_positive(depth)
 
         annotations = json.load(open(json_path, "r"))["Detections"]
-        annotations_sorted = sorted(annotations, key=lambda x: int(x["Distance"]))  # process closest first
+        annotations_sorted = sorted(annotations, key=lambda x: int(x["Distance"]), reverse=True)  # process closest first
         for anno in annotations_sorted:
             handle = anno["Handle"]
             distance = int(anno["Distance"])
@@ -136,11 +155,11 @@ if __name__ == '__main__':
                 color = (int(color[0]), int(color[1]), int(color[2]))
                 handle_to_color[handle] = color
 
-            draw_3d_bbox(image, anno, view_matrix, proj_matrix, color)
+            # draw_3d_bbox(image, anno, view_matrix, proj_matrix, color)
             draw_3d_bones(image, anno, view_matrix, proj_matrix, color)
             # draw_2d_bbox(image, anno, color)
             # draw_tight_bbox(image, anno, color)
 
             # TODO make "check_occluded" code!
-            cv2.imshow("image", image)
-            cv2.waitKey(1)
+        cv2.imshow("image", image)
+        cv2.waitKey(0)

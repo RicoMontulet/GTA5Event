@@ -53,12 +53,13 @@ namespace GTA5Event
         private int sleepTimeRemainder = 1;
         private ModState currentState = ModState.INIT;
         private GTA.Math.Vector3 TempRoiPoint = new GTA.Math.Vector3(0, 0, 0);
-        private RaycastResult TempRayCastResult = new RaycastResult();
+        private RaycastResult TempRayCastResult;
         private static bool processing = false;
         private static byte[] depth;
         private static byte[] stencil;
         private static Bitmap color;
         private static Dictionary<string, object> Parameters = new Dictionary<string, object>();
+        //private static string[] BoneNames;
 
         public EventExporter()
         {
@@ -92,7 +93,7 @@ namespace GTA5Event
             TotalFrames = (int) Parameters["TotalFrames"];
             FirstEventFrame = (int) Parameters["FirstEventFrame"];
             SecondEventFrame = (int) Parameters["SecondEventFrame"];
-            
+          
             if (FirstEventFrame > TotalFrames)
             {
                 GTA.UI.Notification.Show("Warning! FirstEventFrame > TotalFrames so event will never happen!");
@@ -129,6 +130,8 @@ namespace GTA5Event
             Actions = ((List<string>)Parameters["Actions"]).ToArray();
 
             Fps_Options = ((List<int>)Parameters["Fps"]).ToArray();
+
+            //BoneNames = ((List<string>)Parameters["BonesNames"]).ToArray();
 
             var startTime = (string[])Parameters["StartTime"];
             var endTime = (string[])Parameters["EndTime"];
@@ -176,6 +179,9 @@ namespace GTA5Event
                     "game: " + screenResolution.Width + "x" + screenResolution.Height);
             }
             Game.TimeScale = 1.0f;
+            // Clean up no longer used parameters.
+            foreach (string key in new string[] { "LowerGroupDiv", "LowerGroupSizeDiv", "MinGroupSize", "MaxPeds", "TotalFrames", "FirstEventFrame", "SecondEventFrame", "timeIntervals", "NotificationsEnabled", "Fps", "Weather", "Weather", "BonesNames", "StartTime", "EndTime" })
+                Parameters.Remove(key);
         }
 
         private void ParseIntegerParams(IniData data)
@@ -223,7 +229,7 @@ namespace GTA5Event
                 {
                     Parameters.Add(key.KeyName, int.Parse(key.Value));
                 }
-                File.AppendAllText(logFilePath, "Parsed listofints: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+                File.AppendAllText(logFilePath, "Parsed listofints: " + key.KeyName + "=" + String.Join(",", Parameters[key.KeyName]) + "\n");
             }
         }
 
@@ -243,7 +249,7 @@ namespace GTA5Event
                 {
                     Parameters.Add(key.KeyName, key.Value);
                 }
-                File.AppendAllText(logFilePath, "Parsed listofstrings: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+                File.AppendAllText(logFilePath, "Parsed listofstrings: " + key.KeyName + "=" + String.Join(",", Parameters[key.KeyName]) + "\n");
             }
         }
 
@@ -253,7 +259,7 @@ namespace GTA5Event
             foreach (var key in config)
             {
                 Parameters.Add(key.KeyName, key.Value.Replace(" ", "").Split(':'));
-                File.AppendAllText(logFilePath, "Parsed timestamps: " + key.KeyName + "=" + Parameters[key.KeyName] + "\n");
+                File.AppendAllText(logFilePath, "Parsed timestamps: " + key.KeyName + "=" + String.Join(",", Parameters[key.KeyName]) + "\n");
             }
         }
 
@@ -359,9 +365,9 @@ namespace GTA5Event
                     //float x = Game.GetControlNormal(0, GTA.Control.CursorX);
                     //float y = Game.GetControlNormal(0, GTA.Control.CursorY);
                     TempRoiPoint = Utils.RaycastFromCoord(0, 0, player.Character, 500f, 1f, out TempRayCastResult);
-                    HashFunctions.Draw3DLine(new_pos, TempRoiPoint);
-                    World.DrawMarker(MarkerType.DebugSphere, TempRoiPoint, GTA.Math.Vector3.Zero, GTA.Math.Vector3.Zero, new GTA.Math.Vector3(0.2f, 0.2f, 0.2f), System.Drawing.Color.Red);
-                    GTAData.ShowBoundingBoxes();
+                    //HashFunctions.Draw3DLine(new_pos, TempRoiPoint);
+                    World.DrawMarker(MarkerType.DebugSphere, TempRoiPoint, GTA.Math.Vector3.Zero, GTA.Math.Vector3.Zero, new GTA.Math.Vector3(0.05f, 0.05f, 0.05f), System.Drawing.Color.Red);
+                    GTAData.ShowBoundingBoxes(spawnedPeds);
                     return;
                 }
                 // This function draws current ROI if it's not empty and projects where the next point will be placed at the end of the cursor and saves it in TempRoiPoint
@@ -698,20 +704,8 @@ namespace GTA5Event
                             break;
                         }
                     }
-
-                    Ped x = World.CreateRandomPed(new GTA.Math.Vector3(PedLocation.X, PedLocation.Y, PedLocation.Z));
-                    // Put the spawned ped on the ground
-                    var a = x.Position;
-                    a.Z -= x.HeightAboveGround;
-                    x.Position = a;
-                    // Give random orientation to the ped
-                    a = x.Rotation;
-                    a.X = 0;
-                    a.Y = 0;
-                    a.Z = random.NextFloat(-180, 180);
-                    x.Heading = a.Z;
-                    x.Rotation = a;
-
+                    Ped x = SpawnPed(new GTA.Math.Vector3(PedLocation.X, PedLocation.Y, PedLocation.Z));
+               
                     // Add ped to a list such that we can delete them later
                     spawnedPeds.Add(x);
                     // Save his starting location and group for logging purposes
@@ -752,59 +746,47 @@ namespace GTA5Event
         }
 
         // Just spawn peds infront of the player
-        public void SpawnRandomPeds()
+        public void SpawnRandomPeds(int numPeds)
         {
-            for (int i = 0; i < 50; i++)
+            for (int i = 0; i < numPeds; i++)
             {
-                Ped x = World.CreateRandomPed(player.Character.GetOffsetPosition(new GTA.Math.Vector3(random.Next(-15, 15), 10 + random.Next(-8, 25), 0)));
-                var a = x.Position;
-                a.Z -= x.HeightAboveGround;
-                x.Position = a;
+                SpawnPed(player.Character.GetOffsetPosition(new GTA.Math.Vector3(random.Next(-15, 15), 10 + random.Next(-8, 25), 0)));
+                Script.Wait(10);
+            }
 
-                a = x.Rotation;
-                a.X = random.NextFloat(0, 100);
-                a.Y = random.NextFloat(0, 100);
-                a.Z = random.NextFloat(0, 100);
-                x.Rotation = a;
-                //x.FreezePosition = true;
+            for (int i = 0; i < numPeds; i++)
+            {
+                var x = spawnedPeds[i];
+                x.Kill();
+                Script.Wait(10);
+            }
+            Script.Wait(500);
 
+            for (int i = 0; i < numPeds; i++)
+            {
+                var x = spawnedPeds[i];
+                x.Resurrect();
+                //if (random.NextDouble() < 0.95)
+                //{
+                //    if (random.NextDouble() < 0.25)
+                //    {
+                //        var pos = x.Position;
+                //        if (random.NextDouble() < 0.5)
+                //            pos.X += random.Next(15, 20);
+                //        else
+                //            pos.X -= random.Next(15, 20);
 
-                if (random.NextDouble() < 0.95)
-                {
-                    if (random.NextDouble() < 0.25)
-                    {
-                        var pos = x.Position;
-                        if (random.NextDouble() < 0.5)
-                        {
-                            pos.X += random.Next(15, 20);
-                        }
-                        else
-                        {
-                            pos.X -= random.Next(15, 20);
-                        }
-
-                        if (random.NextDouble() < 0.5)
-                        {
-                            pos.Y += random.Next(15, 20);
-                        }
-                        else
-                        {
-                            pos.Y -= random.Next(15, 20);
-                        }
-
-                        x.Task.RunTo(pos);
-                    }
-                    else
-                    {
-                        x.Task.WanderAround(x.Position, random.NextFloat(25, 40));
-                    }
-
-                }
-                else
-                {
-                    x.Task.UseMobilePhone(50000);
-                }
-                spawnedPeds.Add(x);
+                //        if (random.NextDouble() < 0.5)
+                //            pos.Y += random.Next(15, 20);
+                //        else
+                //            pos.Y -= random.Next(15, 20);
+                //        x.Task.RunTo(pos);
+                //    }
+                //    else
+                //        x.Task.WanderAround(x.Position, random.NextFloat(25, 40));
+                //}
+                //else
+                //    x.Task.UseMobilePhone(50000);
             }
         }
 
@@ -1080,34 +1062,49 @@ namespace GTA5Event
                 case ModState.MESS_AROUND:
                     if (k.KeyCode == Keys.OemQuotes)
                     {
+
+                        // TODO find out how many raycasts before it crashes
+                        //int cnt = 0;
+                        //while (cnt < 100)
+                        //{
+                        //    TempRoiPoint = Utils.RaycastFromCoord(0, 0, player.Character, 500f, 1f, out TempRayCastResult);
+                        //    cnt += 1;
+                        //    if (TempRayCastResult.HitEntity == null)
+                        //    {
+                        //        GTA.UI.Notification.Show("raycast failed: " + cnt);
+                        //    }
+                        //}
+
+
                         GTA.UI.Notification.Show("raycast Anything?" + TempRayCastResult.DidHit + " material?" + TempRayCastResult.MaterialHash);
                         GTA.UI.Notification.Show("raycast Result:" + TempRayCastResult.Result + " Entity:" + TempRayCastResult.HitEntity);
-                        GTA.UI.Notification.Show("result Point: " + TempRoiPoint);
+                        //GTA.UI.Notification.Show("result Point: " + TempRoiPoint);
 
-                        Array values = Enum.GetValues(typeof(PedTaskOptions));
-                        PedTaskOptions randomAction = (PedTaskOptions)values.GetValue(spawnedPeds.Count);
+                        //Array values = Enum.GetValues(typeof(PedTaskOptions));
+                        //PedTaskOptions randomAction = (PedTaskOptions)values.GetValue(spawnedPeds.Count);
 
-                        GTA.UI.Notification.Show(randomAction.ToString());
+                        //GTA.UI.Notification.Show(randomAction.ToString());
 
-                        Ped x = World.CreateRandomPed(player.Character.GetOffsetPosition(new GTA.Math.Vector3(0, 15, 0)));
-                        var a = x.Position;
-                        a.Z -= x.HeightAboveGround;
-                        x.Position = a;
+                        //Ped x = World.CreateRandomPed(player.Character.GetOffsetPosition(new GTA.Math.Vector3(0, 15, 0)));
+                        //var a = x.Position;
+                        //a.Z -= x.HeightAboveGround;
+                        //x.Position = a;
 
-                        spawnedPeds.Add(x);
+                        //spawnedPeds.Add(x);
 
-                        x.Task.StartScenario(randomAction.ToString(), 0f);
-                        
+                        //x.Task.StartScenario(randomAction.ToString(), 0f);
+
                         //player.Character.Task.StartScenario(randomAction.ToString(), 0f);
 
                     }
                     else if (k.KeyCode == Keys.K)
                     {
                         DeleteAllSpawned();
+                        //GTA.UI.Notification.Show("Camera pos: " + );
                     }
                     else if (k.KeyCode == Keys.OemSemicolon)
                     {
-                        SpawnRandomPeds();
+                        SpawnRandomPeds(50);
                         GTA.UI.Notification.Show("Total Peds: " + (World.GetNearbyPeds(player.Character.Position, 500f).Length) + " spawned: " + spawnedPeds.Count);
 
                         // Needed for the vision plugin to not crash
@@ -1189,8 +1186,29 @@ namespace GTA5Event
             }
             else if (k.KeyCode == Keys.OemPeriod)
             {
+                SpawnRandomPeds(1);
                 this.currentState = ModState.MESS_AROUND;
             }
+        }
+
+        private Ped SpawnPed(GTA.Math.Vector3 location)
+        {
+            Ped x = World.CreateRandomPed(new GTA.Math.Vector3(location.X, location.Y, location.Z));
+            // Put the spawned ped on the ground
+            var a = x.Position;
+            a.Z -= x.HeightAboveGround;
+            x.Position = a;
+            // Give random orientation to the ped
+            a = x.Rotation;
+            a.X = 0;
+            a.Y = 0;
+            a.Z = random.NextFloat(-180, 180);
+            x.Heading = a.Z;
+            x.Rotation = a;
+
+            // Add ped to a list such that we can delete them later
+            spawnedPeds.Add(x);
+            return x;
         }
     }
 }
