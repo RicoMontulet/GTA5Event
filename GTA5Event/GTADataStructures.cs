@@ -198,26 +198,31 @@ namespace GTA5Event
                 {
                     Vector3 bonePosition = bone.Position;
                     float boneDistance = ppos.DistanceTo(bonePosition);
-                    if (boneDistance < maxRange)
-                    {
-                        res = World.Raycast(ppos, bonePosition, (IntersectFlags)287, Game.Player.Character);
-                        hitEntity = res.HitEntity;
+                    
+                    // Raycasting seems to be bugged where some people have no collision? Disabled this for now...
 
-                        int isVisible = 0;
-                        if (hitEntity == null)
-                        {
-                            isVisible = -1;
-                        }
-                        else if (hitEntity.Handle == e.Handle)
-                        {
-                            isVisible = 1;
-                        }
-                        gtaBone = new GTABone(bone, isVisible, res);
-                    }
-                    else
-                    {
-                        gtaBone = new GTABone(bone, -2, false, null);
-                    }
+                    //if (boneDistance < maxRange)
+                    //{
+                    //    res = World.Raycast(ppos, bonePosition, (IntersectFlags)287, Game.Player.Character);
+                    //    hitEntity = res.HitEntity;
+
+                    //    int isVisible = 0;
+                    //    if (hitEntity == null)
+                    //    {
+                    //        isVisible = -1;
+                    //    }
+                    //    else if (hitEntity.Handle == e.Handle)
+                    //    {
+                    //        isVisible = 1;
+                    //    }
+                    //    gtaBone = new GTABone(bone, isVisible, res);
+                    //}
+                    //else
+                    //{
+                    //    gtaBone = new GTABone(bone, -2, false, null);
+                    //}
+
+                    gtaBone = new GTABone(bone);
                     Bones3D.Add(bone.Index.ToString(), gtaBone);
                 }
                 catch
@@ -506,6 +511,10 @@ namespace GTA5Event
         public int IsVisible { get; set; }
         public bool DidHit { get; set; }
         public string Material { get; set; }
+        public GTABone(EntityBone bone)
+        {
+            this.Pos = new GTAVector(bone.Position);
+        }
         public GTABone(EntityBone bone, int isVisible, bool didHit, string material)
         {
             this.Pos = new GTAVector(bone.Position);
