@@ -114,3 +114,13 @@ The frame json contains:
 
 ### Citation
 Please cite us :\)
+```
+@inproceedings{montulet2021densely,
+  title={Densely Annotated Photorealistic Virtual Dataset Generation for Abnormal Event Detection},
+  author={Montulet, Rico and Briassouli, Alexia},
+  booktitle={Pattern Recognition. ICPR International Workshops and Challenges: Virtual Event, January 10--15, 2021, Proceedings, Part IV},
+  pages={5--19},
+  year={2021},
+  organization={Springer International Publishing}
+}
+```
