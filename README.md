@@ -53,7 +53,7 @@ When this state is active you can create a ROI for the currently selected locati
 ### F12 Record Data:
 # IMPORTANT!!! Use N to save all the locations before pressing F12 (game can crash during data collection)
 
-When this state is active it will put the camera in the first location and start the data collection process. It will automatically cycle through all available locations and make a new folder "locations_processed" where it will save a new json containing the FPS, cluster centers and locations of people. Make sure the game screen is in front of any other windows since screenshots are used for RGB data. It's best to now alt-tab out of the game (so you don't mouse the mouse accidentally) and leave the pc alone until it's done gathering data.
+When this state is active it will put the camera in the first location and start the data collection process. It will automatically cycle through all available locations and make a new folder "locations_processed" where it will save a new json containing the FPS, cluster centers and locations of people. Make sure the game screen is in front of any other windows since screenshots are used for RGB data. It's best to now alt-tab out of the game (so you don't move the mouse accidentally) and leave the pc alone until it's done gathering data.
 
 
 ## TLDR - Keymappings:
